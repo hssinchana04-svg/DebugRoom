@@ -1,0 +1,83 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String             @id @default(uuid())
+  username     String             @unique
+  email        String?            @unique
+  passwordHash String?            // Nullable for guest users
+  isGuest      Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  rooms        Room[]             @relation("RoomHost")
+  participants RoomParticipant[]
+  annotations  Annotation[]
+}
+
+model Room {
+  id           String             @id @default(uuid())
+  name         String
+  slug         String             @unique // Shareable URL code
+  hostId       String
+  host         User               @relation("RoomHost", fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  participants RoomParticipant[]
+  snapshots    CodeSnapshot[]
+  events       SessionEvent[]
+  annotations  Annotation[]
+}
+
+model RoomParticipant {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+  isOnline  Boolean  @default(true)
+
+  @@unique([roomId, userId])
+}
+
+model CodeSnapshot {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  filePath  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, filePath])
+}
+
+model SessionEvent {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type      String   // "terminal_output", "terminal_input", "editor_change", "presence", "annotation"
+  data      String   // JSON payload stored as string
+  timestamp DateTime @default(now())
+  sequence  Int      // Increasing index for ordering replay events
+}
+
+model Annotation {
+  id         String   @id @default(uuid())
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  filePath   String
+  lineNumber Int
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

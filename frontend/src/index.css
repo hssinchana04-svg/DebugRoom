@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark-950 text-gray-100;
+  }
+}
+
+/* Custom Scrollbar Styles for Dark IDE Theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Custom styles for xterm terminal container */
+.terminal {
+  padding: 12px;
+  background-color: #0b0f19 !important;
+  height: 100%;
+}
+
+.xterm .xterm-viewport {
+  background-color: #0b0f19 !important;
+}
+
+/* Monaco annotation selection line highlighter styling */
+.annotated-line-highlight {
+  background: rgba(99, 102, 241, 0.15);
+  border-left: 3px solid #6366f1;
+}
+
+/* Collaborative cursor flags styles */
+.remote-cursor-decorator {
+  background-color: #06b6d4;
+  width: 2px !important;
+}
+
+.remote-cursor-flag {
+  position: absolute;
+  top: -16px;
+  left: 0;
+  background-color: #06b6d4;
+  color: #000;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
