@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { MessageSquare, Trash2, User } from 'lucide-react';
 
 interface Annotation {
@@ -33,15 +33,18 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({
   onDeleteAnnotation
 }) => {
   const [newComment, setNewComment] = useState('');
+  const [lineInput, setLineInput] = useState('');
 
   const fileAnnotations = annotations
     .filter(a => a.filePath === currentFilePath)
     .sort((a, b) => a.lineNumber - b.lineNumber);
 
+  const resolvedLine = selectedLine ?? (lineInput ? parseInt(lineInput, 10) : null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !selectedLine) return;
-    onAddAnnotation(selectedLine, newComment.trim());
+    if (!newComment.trim() || !resolvedLine || isNaN(resolvedLine) || resolvedLine < 1) return;
+    onAddAnnotation(resolvedLine, newComment.trim());
     setNewComment('');
   };
 
@@ -113,37 +116,43 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({
         ))}
       </div>
 
-      {/* Add annotation form */}
-      <AnimatePresence>
-        {selectedLine && (
-          <motion.form
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            onSubmit={handleSubmit}
-            className="p-3 border-t border-dark-800 bg-dark-950"
-          >
-            <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-              <span>Comment on</span>
-              <span className="font-mono text-indigo-400">Line {selectedLine}</span>
-            </div>
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              rows={2}
-              className="w-full bg-dark-800 border border-dark-700 rounded-lg text-sm text-gray-200 placeholder-gray-600 px-3 py-2 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+      {/* Add annotation form — always visible */}
+      <form
+        onSubmit={handleSubmit}
+        className="p-3 border-t border-dark-800 bg-dark-950 flex-shrink-0"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-gray-500">Comment on line</span>
+          {selectedLine ? (
+            <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/30">
+              {selectedLine}
+            </span>
+          ) : (
+            <input
+              type="number"
+              min={1}
+              value={lineInput}
+              onChange={e => setLineInput(e.target.value)}
+              placeholder="#"
+              className="w-16 bg-dark-800 border border-dark-700 rounded px-2 py-0.5 text-xs font-mono text-indigo-400 focus:outline-none focus:border-indigo-500 transition-colors"
             />
-            <button
-              type="submit"
-              disabled={!newComment.trim()}
-              className="mt-2 w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-1.5 rounded-lg transition-colors"
-            >
-              Add Comment
-            </button>
-          </motion.form>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+        <textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder={resolvedLine ? `Comment on line ${resolvedLine}...` : 'Click a line in the editor first, or enter a line number above...'}
+          rows={2}
+          className="w-full bg-dark-800 border border-dark-700 rounded-lg text-sm text-gray-200 placeholder-gray-600 px-3 py-2 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={!newComment.trim() || !resolvedLine || isNaN(resolvedLine)}
+          className="mt-2 w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-1.5 rounded-lg transition-colors"
+        >
+          Add Comment
+        </button>
+      </form>
     </div>
   );
 };
