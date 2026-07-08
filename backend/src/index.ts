@@ -3,6 +3,14 @@ import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
+// Handle uncaught errors to prevent node-pty/ConPTY cleanup crashes on Windows
+process.on('uncaughtException', (err) => {
+  console.error('[UncaughtException] Prevented server crash:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UnhandledRejection] Prevented server crash:', reason);
+});
+
 // Import routes
 import authRoutes from './routes/auth';
 import roomRoutes from './routes/rooms';
