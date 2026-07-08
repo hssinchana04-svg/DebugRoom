@@ -12,13 +12,14 @@ import { CodeEditor } from '../components/CodeEditor';
 import { AnnotationPanel } from '../components/AnnotationPanel';
 import { ParticipantsPanel } from '../components/ParticipantsPanel';
 import { ReplayPlayer } from '../components/ReplayPlayer';
+import { API_BASE, SOCKET_URL } from '../lib/config';
 
 type PanelType = 'participants' | 'annotations' | null;
 
 export const RoomPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
 
   const socketRef = useRef<Socket | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -38,7 +39,7 @@ export const RoomPage: React.FC = () => {
   const ensureAuth = useCallback(async () => {
     if (user && token) return token;
     try {
-      const res = await fetch('/api/auth/guest', {
+      const res = await fetch(`${API_BASE}/api/auth/guest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -66,7 +67,7 @@ export const RoomPage: React.FC = () => {
 
       // Load room info
       try {
-        const res = await fetch(`/api/rooms/${slug}`, {
+        const res = await fetch(`${API_BASE}/api/rooms/${slug}`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
         if (!res.ok) {
@@ -82,7 +83,7 @@ export const RoomPage: React.FC = () => {
 
       // Load initial annotations
       try {
-        const res = await fetch(`/api/annotations/${slug}`, {
+        const res = await fetch(`${API_BASE}/api/annotations/${slug}`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
         const data = await res.json();
@@ -90,7 +91,7 @@ export const RoomPage: React.FC = () => {
       } catch {}
 
       // Connect WebSocket
-      const s = io('/', {
+      const s = io(SOCKET_URL, {
         auth: { token: authToken },
         transports: ['websocket', 'polling']
       });
@@ -138,23 +139,31 @@ export const RoomPage: React.FC = () => {
   const handleAddAnnotation = async (lineNumber: number, content: string) => {
     const authToken = localStorage.getItem('debugroom_token');
     try {
-      const res = await fetch(`/api/annotations/${slug}`, {
+      const res = await fetch(`${API_BASE}/api/annotations/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ filePath: 'index.js', lineNumber, content })
       });
-      const annotation = await res.json();
+      const data = await res.json();
       if (res.ok) {
-        setAnnotations(prev => [...prev, annotation]);
-        socket?.emit('annotation:create', annotation);
+        setAnnotations(prev => [...prev, data]);
+        socketRef.current?.emit('annotation:create', data);
+      } else {
+        console.error('Failed to add annotation:', data.error);
+        setError(data.error || 'Failed to add annotation');
+        setTimeout(() => setError(''), 4000);
       }
-    } catch {}
+    } catch (err) {
+      console.error('Annotation fetch error:', err);
+      setError('Network error — could not save annotation');
+      setTimeout(() => setError(''), 4000);
+    }
   };
 
   const handleDeleteAnnotation = async (id: string) => {
     const authToken = localStorage.getItem('debugroom_token');
     try {
-      const res = await fetch(`/api/annotations/${slug}/${id}`, {
+      const res = await fetch(`${API_BASE}/api/annotations/${slug}/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` }
       });
@@ -168,7 +177,7 @@ export const RoomPage: React.FC = () => {
   const openReplay = async () => {
     const authToken = localStorage.getItem('debugroom_token');
     try {
-      const res = await fetch(`/api/recordings/${slug}/events`, {
+      const res = await fetch(`${API_BASE}/api/recordings/${slug}/events`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       const events = await res.json();
@@ -261,12 +270,24 @@ export const RoomPage: React.FC = () => {
             {annotations.length}
           </button>
 
-          {/* Leave */}
+          {/* Leave Room */}
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all"
+            title="Leave Room"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-orange-400 hover:bg-orange-500/10 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-orange-500/20"
           >
             <LogOut size={13} />
+            Leave
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            title="Logout"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-red-500/20"
+          >
+            <LogOut size={13} />
+            Logout
           </button>
         </div>
       </header>
