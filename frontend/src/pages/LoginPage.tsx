@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../lib/config';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const url = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+      const url = mode === 'login' ? `${API_BASE}/api/auth/login` : `${API_BASE}/api/auth/register`;
       const body = mode === 'login'
         ? { username, password }
         : { username, email, password };
@@ -44,7 +45,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/guest', {
+      const res = await fetch(`${API_BASE}/api/auth/guest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
