@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Terminal, Code2, Users, Play, Zap, ArrowRight, Github, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../lib/config';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   const [roomName, setRoomName] = useState('');
   const [joinSlug, setJoinSlug] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +21,7 @@ export const HomePage: React.FC = () => {
   const ensureGuest = async () => {
     if (user) return true;
     try {
-      const res = await fetch('/api/auth/guest', {
+      const res = await fetch(`${API_BASE}/api/auth/guest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -38,7 +44,7 @@ export const HomePage: React.FC = () => {
       const ok = await ensureGuest();
       if (!ok) throw new Error('Auth failed');
       const token = localStorage.getItem('debugroom_token');
-      const res = await fetch('/api/rooms', {
+      const res = await fetch(`${API_BASE}/api/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: roomName.trim() })
@@ -100,6 +106,14 @@ export const HomePage: React.FC = () => {
               <span className="text-sm text-gray-400">
                 Signed in as <span className="text-indigo-400 font-semibold">{user.username}</span>
               </span>
+              <button
+                id="logout-btn"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 bg-transparent hover:bg-red-500/10 border border-transparent hover:border-red-500/20 px-3 py-1.5 rounded-lg transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+              </button>
             </div>
           ) : (
             <button
