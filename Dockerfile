@@ -1,7 +1,5 @@
-# Use Debian Bullseye — required for node-pty native compilation
 FROM node:20-bullseye-slim
 
-# Install build tools for native modules (node-pty needs python, make, g++)
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -10,23 +8,27 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy root package files (monorepo workspaces)
+# Copy all package files
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
 
-# Install ALL dependencies (including devDependencies for building)
-RUN npm install --workspace=backend
+# Install all dependencies
+RUN npm install
 
-# Copy backend source
-COPY backend/ ./backend/
+# Copy all source
+COPY . .
+
+# Build frontend (no VITE_API_URL = uses same origin automatically)
+RUN npm run build --workspace=frontend
 
 # Generate Prisma client
 RUN npm run prisma:generate --workspace=backend
 
-# Compile TypeScript
+# Compile backend TypeScript
 RUN npm run build --workspace=backend
 
 EXPOSE 4000
 
-# Run migrations then start the server
+# Run migrations then start — Express serves both API and frontend
 CMD ["sh", "-c", "cd backend && npx prisma migrate deploy && cd /app && node backend/dist/index.js"]

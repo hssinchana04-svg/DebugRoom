@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Handle uncaught errors to prevent node-pty/ConPTY cleanup crashes on Windows
 process.on('uncaughtException', (err) => {
@@ -47,6 +48,18 @@ app.use('/api/annotations', annotationRoutes);
 
 // Setup WebSockets
 setupSocket(server);
+
+// Serve frontend in production (same-origin, single URL)
+if (process.env.NODE_ENV === 'production') {
+  const frontendDist = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist));
+  // Catch-all: send index.html for all non-API routes (React Router SPA)
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    }
+  });
+}
 
 // Start Server
 const PORT = process.env.PORT || 4000;
