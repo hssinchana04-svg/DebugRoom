@@ -1,0 +1,95 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. AWS credentials ─────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+
+      # ── 3. Login to ECR ────────────────────────────────────────
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── 4. Build & push Docker image ───────────────────────────
+      - name: Build, tag, and push image to ECR
+        id: build
+        env:
+          ECR_REGISTRY:   ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG:      ${{ github.sha }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          LATEST="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "Building $IMAGE ..."
+          docker build -t "$IMAGE" -t "$LATEST" .
+
+          echo "Pushing to ECR..."
+          docker push "$IMAGE"
+          docker push "$LATEST"
+
+          # Pass to next steps
+          echo "image=$IMAGE"           >> $GITHUB_OUTPUT
+          echo "registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
+
+      # ── 5. SSH deploy to EC2 ───────────────────────────────────
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key:      ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            AWS_REGION="${{ secrets.AWS_REGION }}"
+            ECR_REGISTRY="${{ steps.build.outputs.registry }}"
+            IMAGE="${{ steps.build.outputs.image }}"
+
+            echo "--- Logging into ECR ---"
+            aws ecr get-login-password --region "$AWS_REGION" | \
+              docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            echo "--- Pulling image: $IMAGE ---"
+            docker pull "$IMAGE"
+
+            echo "--- Stopping old container ---"
+            docker stop debugroom-app 2>/dev/null || true
+            docker rm   debugroom-app 2>/dev/null || true
+
+            echo "--- Starting new container ---"
+            docker run -d \
+              --name debugroom-app \
+              --restart unless-stopped \
+              -p 4000:4000 \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e NODE_ENV=production \
+              -e PORT=4000 \
+              "$IMAGE"
+
+            echo "--- Waiting for app to start ---"
+            sleep 20
+
+            echo "--- Health check ---"
+            curl -sf http://localhost:4000/health \
+              && echo "Deployment successful!" \
+              || { echo "Health check FAILED"; docker logs debugroom-app --tail 50; exit 1; }

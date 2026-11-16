@@ -29,8 +29,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedUser = localStorage.getItem('debugroom_user');
 
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        // Validate if token is expired (JWT payload has 'exp' in seconds)
+        const payloadBase64 = storedToken.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64));
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          // Token expired, clear stale state
+          localStorage.removeItem('debugroom_token');
+          localStorage.removeItem('debugroom_user');
+        } else {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
+      } catch {
+        // Invalid token structure, clean up
+        localStorage.removeItem('debugroom_token');
+        localStorage.removeItem('debugroom_user');
+      }
     }
     setLoading(false);
   }, []);

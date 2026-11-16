@@ -50,3 +50,7 @@ Thumbs.db
 # Database and Prisma
 /backend/prisma/dev.db
 /backend/prisma/dev.db-journal
+
+# AWS infra — sensitive files, never commit these
+infra/*.pem
+infra/output.txt

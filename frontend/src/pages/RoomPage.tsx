@@ -59,7 +59,7 @@ export const RoomPage: React.FC = () => {
     if (!slug) return;
 
     const init = async () => {
-      const authToken = await ensureAuth();
+      let authToken = await ensureAuth();
       if (!authToken) {
         setError('Failed to authenticate');
         return;
@@ -67,9 +67,29 @@ export const RoomPage: React.FC = () => {
 
       // Load room info
       try {
-        const res = await fetch(`${API_BASE}/api/rooms/${slug}`, {
+        let res = await fetch(`${API_BASE}/api/rooms/${slug}`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
+
+        // If stored token expired, clear it and create a fresh guest session
+        if (res.status === 401) {
+          logout();
+          const guestRes = await fetch(`${API_BASE}/api/auth/guest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const guestData = await guestRes.json();
+          if (guestData.token) {
+            localStorage.setItem('debugroom_token', guestData.token);
+            localStorage.setItem('debugroom_user', JSON.stringify(guestData.user));
+            authToken = guestData.token;
+            res = await fetch(`${API_BASE}/api/rooms/${slug}`, {
+              headers: { Authorization: `Bearer ${authToken}` }
+            });
+          }
+        }
+
         if (!res.ok) {
           setError('Room not found');
           return;

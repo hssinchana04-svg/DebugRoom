@@ -19,7 +19,8 @@ export const HomePage: React.FC = () => {
   const [error, setError] = useState('');
 
   const ensureGuest = async () => {
-    if (user) return true;
+    const currentToken = localStorage.getItem('debugroom_token');
+    if (user && currentToken) return true;
     try {
       const res = await fetch(`${API_BASE}/api/auth/guest`, {
         method: 'POST',
@@ -41,14 +42,35 @@ export const HomePage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const ok = await ensureGuest();
+      let ok = await ensureGuest();
       if (!ok) throw new Error('Auth failed');
-      const token = localStorage.getItem('debugroom_token');
-      const res = await fetch(`${API_BASE}/api/rooms`, {
+      let token = localStorage.getItem('debugroom_token');
+      let res = await fetch(`${API_BASE}/api/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: roomName.trim() })
       });
+
+      // Auto-recover if token is expired or invalidated
+      if (res.status === 401) {
+        logout();
+        const guestRes = await fetch(`${API_BASE}/api/auth/guest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const guestData = await guestRes.json();
+        if (guestData.token) {
+          login(guestData.token, guestData.user);
+          token = guestData.token;
+          res = await fetch(`${API_BASE}/api/rooms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ name: roomName.trim() })
+          });
+        }
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create room');
       navigate(`/room/${data.slug}`);
