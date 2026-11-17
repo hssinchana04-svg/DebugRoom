@@ -19,7 +19,7 @@ type PanelType = 'participants' | 'annotations' | null;
 export const RoomPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user, token, logout } = useAuth();
+  const { user, token, login, logout } = useAuth();
 
   const socketRef = useRef<Socket | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -46,13 +46,13 @@ export const RoomPage: React.FC = () => {
       });
       const data = await res.json();
       if (data.token) {
-        localStorage.setItem('debugroom_token', data.token);
-        localStorage.setItem('debugroom_user', JSON.stringify(data.user));
+        // Sync React AuthContext so the rest of the app sees the guest session
+        login(data.token, data.user);
         return data.token;
       }
     } catch {}
     return null;
-  }, [user, token]);
+  }, [user, token, login]);
 
   // Initialize socket and load room
   useEffect(() => {
@@ -81,8 +81,8 @@ export const RoomPage: React.FC = () => {
           });
           const guestData = await guestRes.json();
           if (guestData.token) {
-            localStorage.setItem('debugroom_token', guestData.token);
-            localStorage.setItem('debugroom_user', JSON.stringify(guestData.user));
+            // Sync React AuthContext so the rest of the app sees the new guest session
+            login(guestData.token, guestData.user);
             authToken = guestData.token;
             res = await fetch(`${API_BASE}/api/rooms/${slug}`, {
               headers: { Authorization: `Bearer ${authToken}` }

@@ -31,4 +31,4 @@ RUN npm run build --workspace=backend
 EXPOSE 4000
 
 # Run migrations then start — Express serves both API and frontend
-CMD ["sh", "-c", "cd backend && npx prisma migrate deploy && cd /app && node backend/dist/index.js"]
+CMD ["sh", "-c", "cd backend && npx prisma db push --skip-generate && cd /app && node backend/dist/index.js"]
