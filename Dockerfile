@@ -1,7 +1,12 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
-# Install build tools needed for node-pty native compilation
-RUN apk add --no-cache python3 make g++
+# Install build tools for native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -10,8 +15,8 @@ COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# Install all dependencies
-RUN npm install
+# Install dependencies — skip optional (node-pty) since app has MockTerminal fallback
+RUN npm install --omit=optional
 
 # Copy all source
 COPY . .
