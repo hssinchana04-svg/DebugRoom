@@ -1,10 +1,7 @@
-FROM node:20-bullseye-slim
+FROM node:20-alpine
 
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install build tools needed for node-pty native compilation
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -19,7 +16,7 @@ RUN npm install
 # Copy all source
 COPY . .
 
-# Build frontend (no VITE_API_URL = uses same origin automatically)
+# Build frontend
 RUN npm run build --workspace=frontend
 
 # Generate Prisma client
@@ -30,5 +27,5 @@ RUN npm run build --workspace=backend
 
 EXPOSE 4000
 
-# Run migrations then start — Express serves both API and frontend
+# Run db push then start server
 CMD ["sh", "-c", "cd backend && npx prisma db push --skip-generate && cd /app && node backend/dist/index.js"]
