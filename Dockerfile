@@ -15,8 +15,8 @@ COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# Install dependencies — skip optional (node-pty) since app has MockTerminal fallback
-RUN npm install --omit=optional
+# Install dependencies
+RUN npm install
 
 # Copy all source
 COPY . .
