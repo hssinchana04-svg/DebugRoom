@@ -8,7 +8,7 @@
 A real-time collaborative debugging platform with a live shared terminal, Monaco code editor, session replay, and inline annotations — all in your browser.</p>
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-debug--room--frontend.vercel.app-6366f1?style=flat-square&logo=vercel)](https://debug-room-frontend.vercel.app)
-[![Backend](https://img.shields.io/badge/Backend-Railway-0B0D0E?style=flat-square&logo=railway)](https://backend-production-27df.up.railway.app/health)
+[![Backend](https://img.shields.io/badge/Backend-Render-46E3B7?style=flat-square&logo=render)](https://debugroom-backend.onrender.com/health)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 
@@ -62,19 +62,21 @@ DebugRoom lets developers share a **live debugging session** in real time — no
 | [Node.js 20](https://nodejs.org/) + [Express](https://expressjs.com/) | HTTP server |
 | [TypeScript](https://www.typescriptlang.org/) | Type safety |
 | [Socket.IO](https://socket.io/) | Real-time bidirectional events |
-| [node-pty](https://github.com/microsoft/node-pty) | Spawn real PTY terminal processes |
+| [MockTerminal](https://github.com/microsoft/node-pty) | Simulated shell (cross-platform fallback) |
 | [Prisma ORM](https://www.prisma.io/) | Database access layer |
-| [PostgreSQL](https://www.postgresql.org/) | Primary database |
+| [PostgreSQL](https://www.postgresql.org/) via [Neon](https://neon.tech) | Primary database |
 | [JWT](https://jwt.io/) + [bcryptjs](https://github.com/dcodeIO/bcrypt.js) | Authentication & password hashing |
-| [Redis](https://redis.io/) | Session caching (in-memory fallback if unavailable) |
+| [Redis](https://redis.io/) via [Upstash](https://upstash.com) | Session caching & presence tracking |
 
 ### Infrastructure
 | Service | Purpose |
 |---|---|
-| [Railway](https://railway.app) | Backend hosting + PostgreSQL database |
+| [Render](https://render.com) | Backend hosting (Docker container) |
+| [Neon](https://neon.tech) | Serverless PostgreSQL database (free, no expiry) |
+| [Upstash](https://upstash.com) | Serverless Redis (free, no expiry) |
 | [Vercel](https://vercel.com) | Frontend static hosting + CDN |
 | [GitHub](https://github.com) | Source control & CI/CD trigger |
-| [Docker](https://docker.com) | Backend containerization (Debian Bullseye for node-pty) |
+| [Docker](https://docker.com) | Backend containerization (Debian Bookworm slim) |
 
 ---
 
@@ -89,16 +91,17 @@ User Browser
     │     ├── xterm.js Terminal
     │     └── Socket.IO client ──────────────────────┐
     │                                                 │
-    └─── Backend (Railway Linux Container)            │
+    └─── Backend (Render Docker Container)            │
           ├── Express REST API (/api/*)               │
           ├── Socket.IO Server ◄─────────────────────┘
           │     ├── editor:change  (live code sync)
           │     ├── terminal:data  (PTY output stream)
           │     ├── annotation:*   (live comments)
           │     └── room:*         (presence/participants)
-          ├── node-pty (real shell process per room)
+          ├── MockTerminal (fallback shell simulator)
           ├── Prisma ORM
-          └── PostgreSQL Database (Railway)
+          ├── Neon PostgreSQL (serverless cloud DB)
+          └── Upstash Redis (serverless cache)
 ```
 
 ---
@@ -208,24 +211,27 @@ npm run dev
 
 ## 🌍 Deployment
 
-This project is deployed on **Railway (backend)** + **Vercel (frontend)**.
+This project is deployed on **Render (backend)** + **Vercel (frontend)** with **Neon PostgreSQL** and **Upstash Redis**.
 
-### Backend → Railway
-1. Create a Railway project → add service from GitHub repo
-2. Add **PostgreSQL** plugin
-3. Set environment variables (see below)
-4. Railway auto-builds via `Dockerfile` and runs migrations on startup
+### Backend → Render
+1. Create a [Render](https://render.com) Web Service → connect GitHub repo
+2. Set **Runtime** to **Docker**
+3. Create a free [Neon](https://neon.tech) PostgreSQL database → copy connection string
+4. Create a free [Upstash](https://upstash.com) Redis database → copy Redis URL
+5. Set environment variables (see below)
+6. Render auto-builds via `Dockerfile` and runs `prisma db push` on startup
 
 ### Frontend → Vercel
 1. Import repo → set **Root Directory** to `frontend`
-2. Add env var: `VITE_API_URL=https://your-backend.up.railway.app`
+2. Add env var: `VITE_API_URL=https://your-backend.onrender.com`
 3. Deploy
 
 ### Environment Variables
 
-**Backend (Railway):**
+**Backend (Render):**
 ```env
-DATABASE_URL=${{Postgres.DATABASE_URL}}
+DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
+REDIS_URL=rediss://default:xxx@xxx.upstash.io:6379
 JWT_SECRET=your_strong_secret_here
 NODE_ENV=production
 PORT=4000
@@ -233,7 +239,7 @@ PORT=4000
 
 **Frontend (Vercel):**
 ```env
-VITE_API_URL=https://your-backend.up.railway.app
+VITE_API_URL=https://your-backend.onrender.com
 ```
 
 ---
